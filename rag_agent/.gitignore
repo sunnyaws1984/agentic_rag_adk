@@ -2,3 +2,4 @@
 .env
 faiss_index
 _pycache__
+.DS_Store
