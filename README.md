@@ -15,11 +15,11 @@ source .venv/Scripts/activate   # GIT BASH
 Install Python 3.13.5 as pre-requisite
 pip install google-adk
 pip install langchain langchain-community faiss-cpu sentence-transformers pypdf
-pip install google-generativeai
 
 or
 
 pip install -r requirements.txt
+uv pip install -r requirements.txt (Speed up the installations)
 
 4. Run below commands:
 
