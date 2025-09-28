@@ -1,5 +1,8 @@
-# Ignore environment variables file
+# Created by venv; see https://docs.python.org/3/library/venv.html
+agent_rag
 .env
 faiss_index
-_pycache__
-.DS_Store
+pyvenv.cfg
+Lib
+Scripts
+__pycache__
