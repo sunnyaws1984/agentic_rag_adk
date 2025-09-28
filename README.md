@@ -6,9 +6,9 @@ git clone https://github.com/sunnyaws1984/agentic_rag_adk.git
 cd agentic_rag_adk 
 
 2. Create a virtual environment (recommended)
-python -m venv agent_rag
-source agent_rag/bin/activate       # Mac/Linux
-source agent_rag/Scripts/activate   # GIT BASH
+python -m venv .venv
+source .venv/bin/activate       # Mac/Linux
+source .venv/Scripts/activate   # GIT BASH
 
 3. Install Google ADK :
 
