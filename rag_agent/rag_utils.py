@@ -1,49 +1,63 @@
 import os
+from typing import Optional
+
 from langchain_community.vectorstores import FAISS
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
+DEFAULT_INDEX_PATH = "faiss_index"
 
-def get_or_create_faiss(pdf_path: str, index_path: str = "faiss_index"):
-    """Load FAISS index if it exists, otherwise create one from PDF with custom chunking."""
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-
-    try:
-        # Try to load an existing FAISS index from disk.
-        # FAISS stores only vectors, so we must pass the same embedding model
-        # to embed new queries in the same vector space as stored chunks.
-        return FAISS.load_local(index_path, embeddings, allow_dangerous_deserialization=True)
-        # Note: Pickle deserialization can be unsafe if loading untrusted files.
-    except Exception:
-        # Otherwise: load the PDF, split it, embed chunks, and create a new FAISS index.
-        loader = PyPDFLoader(pdf_path)       # Reads the PDF into LangChain Document objects (1 per page).
-        docs = loader.load() # Load PDF into Document objects
-
-        # Split long pages into smaller overlapping chunks for better embedding & retrieval.
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,   # max characters per chunk
-            chunk_overlap=200  # overlap between chunks to preserve context
-        )
-        split_docs = splitter.split_documents(docs)
-
-        # Create FAISS index:
-        # - Convert each chunk into an embedding vector
-        # - Store vectors in FAISS for fast similarity search
-        # - Keep mapping back to original Document + metadata
-        vectorstore = FAISS.from_documents(split_docs, embeddings)
-        vectorstore.save_local(index_path)
-        return vectorstore
-
-# Note: `faiss_index/` is just a local folder where the FAISS vector database is stored.
-# - If the folder exists: loads the index from disk.
-# - If not: builds a new one from the PDF and saves it for future reuse.
-
-def get_retriever(pdf_path: str, index_path: str = "faiss_index"):
+# Embedding model (shared)
+def get_embeddings() -> HuggingFaceEmbeddings:
     """
-    Returns a retriever for use inside an ADK agent.
+    Returns a HuggingFace embedding model.
+    Must be the same model used for both indexing and retrieval.
+    """
+    return HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
+
+# FAISS creation / loading
+
+def get_or_create_faiss(pdf_path: str,index_path: str = DEFAULT_INDEX_PATH) -> FAISS:
+    """
+    Load a FAISS index from disk if it exists.
+    Otherwise, create a new FAISS index from the given PDF and save it.
+    """
+    embeddings = get_embeddings()
+
+    # If index already exists, load it
+    if os.path.exists(index_path):
+        return FAISS.load_local(
+            index_path,
+            embeddings,
+            allow_dangerous_deserialization=True,  # safe if index is trusted
+        )
+
+    # Otherwise, build index from PDF
+    loader = PyPDFLoader(pdf_path)
+    documents = loader.load()
+
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,
+        chunk_overlap=200,
+    )
+    split_documents = splitter.split_documents(documents)
+
+    vectorstore = FAISS.from_documents(split_documents, embeddings)
+    vectorstore.save_local(index_path)
+
+    return vectorstore
+
+# Retriever creation
+
+def get_retriever(pdf_path: str, index_path: str = DEFAULT_INDEX_PATH,):
+    """
+    Returns a LangChain retriever compatible with v0.2+ (Runnable interface).
     """
     vectorstore = get_or_create_faiss(pdf_path, index_path)
-    return vectorstore.as_retriever(search_kwargs={"k": 3})  # Finds the k=3 most similar chunks in FAISS.
 
-    # PDF → Pages (Document) → Chunked Docs → Embeddings → FAISS Index (saved/loaded) → Retriever
+    return vectorstore.as_retriever(
+        search_type="similarity",
+        search_kwargs={"k": 3},
+    )
