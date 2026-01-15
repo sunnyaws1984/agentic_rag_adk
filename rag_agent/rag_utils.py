@@ -36,7 +36,7 @@ def get_or_create_faiss(pdf_path: str,index_path: str = DEFAULT_INDEX_PATH) -> F
 
     # Otherwise, build index from PDF
     loader = PyPDFLoader(pdf_path)
-    documents = loader.load()
+    documents = loader.load() # Each page becomes a LangChain Document
 
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
